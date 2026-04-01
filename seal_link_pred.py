@@ -105,7 +105,7 @@ class SEALDataset(InMemoryDataset):
                                                self.data.num_nodes,
                                                self.percent, neg_ratio=self.neg_ratio)
 
-        if self.use_coalesce:  # compress mutli-edge into edge with weight
+        if self.use_coalesce:  
             self.data.edge_index, self.data.edge_weight = coalesce(
                 self.data.edge_index, self.data.edge_weight,
                 self.data.num_nodes, self.data.num_nodes)
@@ -119,7 +119,7 @@ class SEALDataset(InMemoryDataset):
             shape=(self.data.num_nodes, self.data.num_nodes)
         )
 
-        # 全局预计算拉普拉斯矩阵和NX图对象
+
         D_diag = np.array(A.sum(axis=1)).flatten()
         D = ssp.diags(D_diag)
         L = D - A
@@ -197,7 +197,7 @@ class SEALDynamicDataset(Dataset):
             self.links = torch.cat([pos_edge, neg_edge], 1).t().tolist()
             self.labels = [1] * pos_edge.size(1) + [0] * neg_edge.size(1)
 
-        if self.use_coalesce:  # compress mutli-edge into edge with weight
+        if self.use_coalesce:  
             self.data.edge_index, self.data.edge_weight = coalesce(
                 self.data.edge_index, self.data.edge_weight,
                 self.data.num_nodes, self.data.num_nodes)
@@ -212,7 +212,7 @@ class SEALDynamicDataset(Dataset):
             shape=(self.data.num_nodes, self.data.num_nodes)
         )
         
-        # 全局预计算拉普拉斯矩阵和NX图对象
+        
         D_diag = np.array(self.A.sum(axis=1)).flatten()
         D = ssp.diags(D_diag)
         self.L = D - self.A
@@ -233,7 +233,6 @@ class SEALDynamicDataset(Dataset):
         src, dst = self.links[idx]
         y = self.labels[idx]
 
-        # 完全使用热核与Chopper剪枝来提句子图
         tmp = hk_chopper_subgraph(src, dst, self.A, self.L, self.G_nx, node_features=self.data.x, y=y)
         data = construct_pyg_graph(*tmp, self.node_label)
 
@@ -242,7 +241,7 @@ class SEALDynamicDataset(Dataset):
 
 @profileit()
 def profile_train(model, train_loader, optimizer, device, emb, train_dataset, args):
-    # normal training with BCE logit loss with profiling enabled
+  
     model.train()
 
     total_loss = 0
@@ -264,7 +263,7 @@ def profile_train(model, train_loader, optimizer, device, emb, train_dataset, ar
 
 
 def train_bce(model, train_loader, optimizer, device, emb, train_dataset, args):
-    # normal training with BCE logit loss
+ 
     model.train()
 
     total_loss = 0
@@ -286,7 +285,7 @@ def train_bce(model, train_loader, optimizer, device, emb, train_dataset, args):
 
 
 def train_pairwise(model, train_positive_loader, train_negative_loader, optimizer, device, emb, train_dataset, args):
-    # pairwise training with AUC loss + many others from PLNLP paper
+    
     model.train()
 
     total_loss = 0
@@ -460,7 +459,7 @@ def evaluate_mrr(pos_val_pred, neg_val_pred, pos_test_pred, neg_test_pred, evalu
 
 
 def evaluate_auc(val_pred, val_true, test_pred, test_true):
-    # this also evaluates AP, but the function is not renamed as such
+
     valid_auc = roc_auc_score(val_true, val_pred)
     test_auc = roc_auc_score(test_true, test_pred)
 
@@ -587,7 +586,7 @@ def run_sweal(args, device):
     with open(log_file, 'a') as f:
         f.write('\n' + cmd_input)
 
-    # S[W]EAL Dataset prep + Training Flow
+  
     if args.dataset.startswith('ogbl'):
         dataset = PygLinkPropPredDataset(name=args.dataset)
         split_edge = dataset.get_edge_split()
@@ -603,32 +602,32 @@ def run_sweal(args, device):
         data.edge_index = split_edge['train']['edge'].t()
 
     elif args.dataset == 'Custom':
-        # 读取边索引
+      
         edge_file = 'edges/custom_edges.txt'
         edge_index = np.loadtxt(edge_file, dtype=int)
         edge_index = torch.tensor(edge_index, dtype=torch.long)
 
-        # 检查并转置 edge_index 的形状
+      
         if edge_index.dim() == 2 and edge_index.size(1) == 2:
             edge_index = edge_index.t()  # 转置为 [2, num_edges]
         print(f"[DEBUG] Initial edge_index shape: {edge_index.shape}")
         if edge_index.dim() != 2 or edge_index.size(0) != 2:
             raise ValueError(f"Edge index shape {edge_index.shape} is invalid. Expected [2, num_edges].")
 
-        # 读取节点特征
-        feature_file = 'edges/custom_features.txt'  # 替换为实际的特征文件路径
+      
+        feature_file = 'edges/custom_features.txt'  
         x = np.loadtxt(feature_file)
         x = torch.tensor(x, dtype=torch.float)
 
-        # 检查 x 的维度
+  
         if x.dim() == 1:
-            x = x.unsqueeze(1)  # 将一维张量转换为二维张量
+            x = x.unsqueeze(1) 
 
         data = Data(edge_index=edge_index, x=x)
         data.edge_index = to_undirected(data.edge_index)
         data.num_nodes = x.shape[0]
 
-        # 数据划分
+        
         split_edge = do_edge_split(data, args.fast_split, val_ratio=args.split_val_ratio,
                                    test_ratio=args.split_test_ratio, neg_ratio=args.neg_ratio, data_passed=True)
         data.edge_index = split_edge['train']['edge'].t()
@@ -636,7 +635,6 @@ def run_sweal(args, device):
         if data.edge_index.dim() != 2 or data.edge_index.size(0) != 2:
             raise ValueError(f"Edge index shape {data.edge_index.shape} is invalid after split.")
 
-        # 手动创建 DummyDataset 对象
         class DummyDataset:
             def __init__(self, root):
                 self.root = root
@@ -651,26 +649,26 @@ def run_sweal(args, device):
         dataset = DummyDataset(root=f'dataset/Custom_{args.dataset}')
 
     elif args.dataset == 'MiRNA':
-        # 读取边索引和节点特征
+       
         edge_file = 'edges/mirna_edges.txt'
         edge_index = np.loadtxt(edge_file, dtype=int)
         edge_index = torch.tensor(edge_index, dtype=torch.long)
 
-        # 检查并转置 edge_index 的形状
+     
         if edge_index.dim() == 2 and edge_index.size(1) == 2:
-            edge_index = edge_index.t()  # 转置为 [2, num_edges]
+            edge_index = edge_index.t()  
         print(f"[DEBUG] Initial edge_index shape: {edge_index.shape}")
         if edge_index.dim() != 2 or edge_index.size(0) != 2:
             raise ValueError(f"Edge index shape {edge_index.shape} is invalid. Expected [2, num_edges].")
 
-        # 读取节点特征
-        feature_file = 'edges/mirna_features.txt'  # 替换为实际的特征文件路径
+      
+        feature_file = 'edges/mirna_features.txt' 
         x = np.loadtxt(feature_file)
         x = torch.tensor(x, dtype=torch.float)
 
-        # 检查 x 的维度
+      
         if x.dim() == 1:
-            x = x.unsqueeze(1)  # 将一维张量转换为二维张量
+            x = x.unsqueeze(1)  
 
         data = Data(edge_index=edge_index, x=x)
         data.edge_index = to_undirected(data.edge_index)
@@ -684,7 +682,7 @@ def run_sweal(args, device):
         if data.edge_index.dim() != 2 or data.edge_index.size(0) != 2:
             raise ValueError(f"Edge index shape {data.edge_index.shape} is invalid after split.")
 
-        # 手动创建 DummyDataset 对象
+        
         class DummyDataset:
             def __init__(self, root):
                 self.root = root
@@ -700,32 +698,32 @@ def run_sweal(args, device):
 
 
     elif args.dataset == 'KIBA':
-        # 读取边索引和节点特征
+   
         edge_file = 'edges/kiba_edges.txt'
         edge_index = np.loadtxt(edge_file, dtype=int)
         edge_index = torch.tensor(edge_index, dtype=torch.long)
 
-        # 检查并转置 edge_index 的形状
+     
         if edge_index.dim() == 2 and edge_index.size(1) == 2:
-            edge_index = edge_index.t()  # 转置为 [2, num_edges]
+            edge_index = edge_index.t() 
         print(f"[DEBUG] Initial edge_index shape: {edge_index.shape}")
         if edge_index.dim() != 2 or edge_index.size(0) != 2:
             raise ValueError(f"Edge index shape {edge_index.shape} is invalid. Expected [2, num_edges].")
 
-        # 读取节点特征
-        feature_file = 'edges/kiba_features.txt'  # 替换为实际的特征文件路径
+        
+        feature_file = 'edges/kiba_features.txt' 
         x = np.loadtxt(feature_file)
         x = torch.tensor(x, dtype=torch.float)
 
-        # 检查 x 的维度
+       
         if x.dim() == 1:
-            x = x.unsqueeze(1)  # 将一维张量转换为二维张量
+            x = x.unsqueeze(1) 
 
         data = Data(edge_index=edge_index, x=x)
         data.edge_index = to_undirected(data.edge_index)
         data.num_nodes = x.shape[0]
 
-        # 数据划分
+      
         split_edge = do_edge_split(data, args.fast_split, val_ratio=args.split_val_ratio,
                                    test_ratio=args.split_test_ratio, neg_ratio=args.neg_ratio, data_passed=True)
         data.edge_index = split_edge['train']['edge'].t()
@@ -733,7 +731,7 @@ def run_sweal(args, device):
         if data.edge_index.dim() != 2 or data.edge_index.size(0) != 2:
             raise ValueError(f"Edge index shape {data.edge_index.shape} is invalid after split.")
 
-        # 手动创建 DummyDataset 对象
+     
         class DummyDataset:
             def __init__(self, root):
                 self.root = root
@@ -749,32 +747,32 @@ def run_sweal(args, device):
 
 
     elif args.dataset == 'Microbe':
-        # 读取边索引和节点特征
+        
         edge_file = 'edges/microbe_edges.txt'
         edge_index = np.loadtxt(edge_file, dtype=int)
         edge_index = torch.tensor(edge_index, dtype=torch.long)
 
-        # 检查并转置 edge_index 的形状
+      
         if edge_index.dim() == 2 and edge_index.size(1) == 2:
-            edge_index = edge_index.t()  # 转置为 [2, num_edges]
+            edge_index = edge_index.t()  
         print(f"[DEBUG] Initial edge_index shape: {edge_index.shape}")
         if edge_index.dim() != 2 or edge_index.size(0) != 2:
             raise ValueError(f"Edge index shape {edge_index.shape} is invalid. Expected [2, num_edges].")
 
-        # 读取节点特征
-        feature_file = 'edges/microbe_features.txt'  # 替换为实际的特征文件路径
+    
+        feature_file = 'edges/microbe_features.txt' 
         x = np.loadtxt(feature_file)
         x = torch.tensor(x, dtype=torch.float)
 
-        # 检查 x 的维度
+       
         if x.dim() == 1:
-            x = x.unsqueeze(1)  # 将一维张量转换为二维张量
+            x = x.unsqueeze(1) 
 
         data = Data(edge_index=edge_index, x=x)
         data.edge_index = to_undirected(data.edge_index)
         data.num_nodes = x.shape[0]
 
-        # 数据划分
+      
         split_edge = do_edge_split(data, args.fast_split, val_ratio=args.split_val_ratio,
                                    test_ratio=args.split_test_ratio, neg_ratio=args.neg_ratio, data_passed=True)
         data.edge_index = split_edge['train']['edge'].t()
@@ -782,7 +780,7 @@ def run_sweal(args, device):
         if data.edge_index.dim() != 2 or data.edge_index.size(0) != 2:
             raise ValueError(f"Edge index shape {data.edge_index.shape} is invalid after split.")
 
-        # 手动创建 DummyDataset 对象
+       
         class DummyDataset:
             def __init__(self, root):
                 self.root = root
@@ -797,30 +795,28 @@ def run_sweal(args, device):
         dataset = DummyDataset(root=f'dataset/Microbe_{args.dataset}')
 
     elif args.dataset == 'PPI':
-        # 读取边索引和节点特征
+       
         edge_file = 'edges/ppi_edges.txt'
         edge_index = np.loadtxt(edge_file, dtype=int)
         edge_index = torch.tensor(edge_index, dtype=torch.long)
 
-        # 检查并转置 edge_index 的形状
+     
         if edge_index.dim() == 2 and edge_index.size(1) == 2:
-            edge_index = edge_index.t()  # 转置为 [2, num_edges]
+            edge_index = edge_index.t()  
         print(f"[DEBUG] Initial edge_index shape: {edge_index.shape}")
         if edge_index.dim() != 2 or edge_index.size(0) != 2:
             raise ValueError(f"Edge index shape {edge_index.shape} is invalid. Expected [2, num_edges].")
 
-        # 检查边索引中的节点索引是否超出范围
         num_nodes = edge_index.max().item() + 1
         assert edge_index.max() < num_nodes, "Initial edge index out of bounds"
 
-        # 读取节点特征
-        feature_file = 'edges/ppi_features.txt'  # 替换为实际的特征文件路径
+    
+        feature_file = 'edges/ppi_features.txt'  
         x = np.loadtxt(feature_file)
         x = torch.tensor(x, dtype=torch.float)
 
-        # 检查 x 的维度
         if x.dim() == 1:
-            x = x.unsqueeze(1)  # 将一维张量转换为二维张量
+            x = x.unsqueeze(1)  
 
         data = Data(edge_index=edge_index, x=x)
         data.edge_index = to_undirected(data.edge_index)
@@ -834,10 +830,10 @@ def run_sweal(args, device):
         if data.edge_index.dim() != 2 or data.edge_index.size(0) != 2:
             raise ValueError(f"Edge index shape {data.edge_index.shape} is invalid after split.")
 
-        # 检查划分后边索引中的节点索引是否超出范围
+
         assert data.edge_index.max() < data.num_nodes, "Edge index out of bounds after split"
 
-        # 手动创建 DummyDataset 对象
+        
         class DummyDataset:
             def __init__(self, root):
                 self.root = root
@@ -866,7 +862,7 @@ def run_sweal(args, device):
 
     elif args.dataset in ['USAir', 'NS', 'Power', 'Celegans', 'Router', 'PB', 'Ecoli', 'Yeast']:
 
-        # We consume the dataset split index as well
+        
 
         file_name = os.path.join('data', 'link_prediction', args.dataset.lower())
 
@@ -892,7 +888,7 @@ def run_sweal(args, device):
 
         data.edge_index = split_edge['train']['edge'].t()
 
-        # backward compatibility
+
 
         class DummyDataset:
 
@@ -946,7 +942,7 @@ def run_sweal(args, device):
     elif args.dataset.startswith('ogbl'):
         args.eval_metric = 'hits'
         directed = False
-    else:  # assume other datasets are undirected
+    else:  
         args.eval_metric = 'auc'
         directed = False
 
@@ -978,7 +974,7 @@ def run_sweal(args, device):
         }
 
     if args.use_heuristic:
-        # Test link prediction heuristics.
+       
         num_nodes = data.num_nodes
         if 'edge_weight' in data:
             edge_weight = data.edge_weight.view(-1)
@@ -1097,7 +1093,7 @@ def run_sweal(args, device):
                 neg_ratio=args.neg_ratio,
             )
     viz = False
-    if viz:  # visualize some graphs
+    if viz: 
         import networkx as nx
         from torch_geometric.utils import to_networkx
         import matplotlib
@@ -1159,7 +1155,7 @@ def run_sweal(args, device):
         print("Finished calculating ratio of datasets.")
         exit()
 
-    max_z = 1000  # set a large max_z so that every z has embeddings to look up
+    max_z = 1000  
 
     if not any([args.train_gae, args.train_mf, args.train_n2v]):
         if args.pairwise:
@@ -1182,7 +1178,7 @@ def run_sweal(args, device):
         emb = torch.nn.Embedding.from_pretrained(weight)
         emb.weight.requires_grad = False
     elif args.use_n2v:
-        # 根据数据集确定嵌入文件名
+     
         if args.dataset == 'Microbe':
             embedding_filename = 'embedding/embedding_microbe.pt'
         elif args.dataset == 'MiRNA':
@@ -1195,7 +1191,7 @@ def run_sweal(args, device):
             embedding_filename = 'embedding/embedding_custom.pt'
             
         if not os.path.isfile(embedding_filename):
-            run_and_save_n2v(args, device, data)  # saves n2v embeddings
+            run_and_save_n2v(args, device, data) 
         if args.use_retrofitting:
             emb = n2v_emb(args, data, device)
         if args.use_concat:
@@ -1208,7 +1204,7 @@ def run_sweal(args, device):
     else:
         emb = None
 
-    seed_everything(args.seed)  # reset rng for model weights
+    seed_everything(args.seed)  
     for run in range(args.runs):
         if args.pairwise:
             train_dataset = train_positive_dataset
@@ -1249,8 +1245,8 @@ def run_sweal(args, device):
                 hidden_channels=args.hidden_channels,
                 num_layers=args.num_layers,
                 max_z=max_z,
-                num_views=args.num_views,  # 新增参数
-                k=args.sortpool_k,  # 对应DGCNN的sortpool_k
+                num_views=args.num_views,  
+                k=args.sortpool_k,  
                 train_dataset=train_dataset,
                 dynamic_train=args.dynamic_train,
                 use_feature=args.use_feature,
@@ -1306,7 +1302,7 @@ def run_sweal(args, device):
 
         if args.test_multiple_models:
             model_paths = [
-            ]  # enter all your pretrained .pth model paths here
+            ]  
             models = []
             for path in model_paths:
                 m = cp.deepcopy(model)
@@ -1333,11 +1329,11 @@ def run_sweal(args, device):
             pdb.set_trace()
             exit()
 
-        # Training starts
+       
         all_stats = []
         for epoch in range(start_epoch, start_epoch + args.epochs):
             if args.profile:
-                # this gives the stats for exactly one training epoch
+                
                 loss, stats = profile_train(model, train_loader, optimizer, device, emb, train_dataset, args)
                 all_stats.append(stats)
             else:
@@ -1496,8 +1492,8 @@ if __name__ == '__main__':
     parser.add_argument('--base_gae', type=str, default='', help='Choose base GAE model', choices=['GCN', 'SAGE'])
 
     parser.add_argument('--dropout', type=float, default=0.5)
-    parser.add_argument('--seed', type=int, default=1)  # we can set this to value in dataset_split_num as well
-    parser.add_argument('--dataset_split_num', type=int, default=1)  # This is maintained for WalkPool Datasets only
+    parser.add_argument('--seed', type=int, default=1)  
+    parser.add_argument('--dataset_split_num', type=int, default=1)  
 
     parser.add_argument('--train_n2v', action='store_true', default=False, help="Train node2vec on the dataset")
     parser.add_argument('--train_mf', action='store_true', default=False, help="Train MF on the dataset")
