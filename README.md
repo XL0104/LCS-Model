@@ -36,7 +36,6 @@
   - `MiRNA`
   - `KIBA`
   - `Microbe`（对应 MDA 类数据集）
-  - `PPI`
 
 **自定义数据集准备**：  
 在 `edges/` 目录下放置：
