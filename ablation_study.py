@@ -49,10 +49,9 @@ class AblationStudy:
     def ablation_no_feature_representation(self):
         """消融实验2：移除特征表示模块"""
         print("=== 消融实验2：移除特征表示模块 ===")
-        
-        # 修改参数：不使用节点特征
+      
         args = self._copy_args()
-        args.use_feature = False  # 不使用节点特征
+        args.use_feature = False  
         args.save_appendix = '_ablation_no_features'
         
         try:
@@ -66,10 +65,9 @@ class AblationStudy:
     def ablation_no_feature_fusion(self):
         """消融实验3：移除特征融合模块"""
         print("=== 消融实验3：移除特征融合模块 ===")
-        
-        # 修改参数：使用单视图DGCNN而不是多视图MVGCN
+       
         args = self._copy_args()
-        args.model = 'DGCNN'  # 使用单视图模型
+        args.model = 'DGCNN'  
         args.save_appendix = '_ablation_no_fusion'
         
         try:
@@ -83,10 +81,9 @@ class AblationStudy:
     def ablation_no_dynamic_gcn(self):
         """消融实验4：移除动态图卷积预测模块"""
         print("=== 消融实验4：移除动态图卷积预测模块 ===")
-        
-        # 修改参数：使用简单的MLP而不是DGCNN
+    
         args = self._copy_args()
-        args.model = 'MLP'  # 使用简单MLP模型
+        args.model = 'MLP' 
         args.save_appendix = '_ablation_no_dgcnn'
         
         try:
@@ -156,7 +153,6 @@ class AblationStudy:
     
     def _copy_args(self):
         """复制基础参数"""
-        # 创建一个新的参数对象，复制所有属性
         args_copy = SWEALArgumentParser(
             dataset=self.base_args.dataset,
             fast_split=self.base_args.fast_split,
@@ -219,7 +215,6 @@ class AblationStudy:
     
     def save_results(self, filename='ablation_results.json'):
         """保存消融实验结果"""
-        # 转换为可序列化的格式
         serializable_results = {}
         for key, value in self.results.items():
             if value is not None:
@@ -255,7 +250,7 @@ class AblationStudy:
                 if results and 'test' in results and metric in results['test']:
                     test_value = results['test'][metric]
                     if isinstance(test_value, (list, tuple)) and len(test_value) >= 2:
-                        test_value = test_value[1]  # 取测试集结果
+                        test_value = test_value[1]  
                     print(f"{exp_name:25}: {test_value:.4f}")
         
         # 计算性能下降百分比
@@ -282,24 +277,23 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"使用设备: {device}")
     
-    # 基础参数设置（与seal_link_pred.py相同的数据集和配置）
     base_args = SWEALArgumentParser(
-        dataset='Cora',  # 使用Cora数据集
-        fast_split=False,  # 修复：fast_split功能未实现，设为False
-        model='MVGCN',  # 使用多视图GCN作为基线
+        dataset='Cora',  
+        fast_split=False,  
+        model='MVGCN',  
         sortpool_k=0.6,
         num_layers=3,
         hidden_channels=32,
         batch_size=32,
-        num_hops=2,  # 使用2跳子图
+        num_hops=2,
         ratio_per_hop=1.0,
         max_nodes_per_hop=None,
         node_label='drnl',
-        use_feature=True,  # 使用节点特征
+        use_feature=True,  
         use_edge_weight=False,
         lr=0.001,
         epochs=50,
-        runs=3,  # 多次运行取平均
+        runs=3,  
         train_percent=100,
         val_percent=10,
         test_percent=10,
@@ -345,7 +339,6 @@ def main():
     # 创建消融实验对象
     study = AblationStudy(base_args, device)
     
-    # 运行基线实验
     study.run_baseline()
     
     # 运行单个模块消融实验
